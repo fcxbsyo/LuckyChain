@@ -1,206 +1,304 @@
+import os
+import sys
+import pygame
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-import subprocess
-import sys
-import os
-from user_manager import UserManager
-from tkinter import PhotoImage
-from PIL import Image, ImageTk
+from PIL import Image
 import tkinter.font as tkFont
+from user_manager import UserManager, User
+import main
+from user_manager import UserManager
 
 
-class App(tk.Tk):
+WIDTH, HEIGHT = 1600, 1000
+FONT_PATH = os.path.join("graphics", "font", "BebasNeue-Regular.ttf")
+BG_GIF_PATH = os.path.join("graphics", "wallpaper.gif")
+
+
+class WelcomeScreen:
     def __init__(self):
-        super().__init__()
-        self.title("LuckyChain Launcher")
+        pygame.init()
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Lucky Chain - Welcome")
+        self.frames = self.load_gif(BG_GIF_PATH)
+        self.current_frame = 0
+        self.frame_timer = 0
+        self.frame_interval = 100
 
-        window_width = 1350
-        window_height = 900
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        center_x = int(screen_width / 2 - window_width / 2)
-        center_y = int(screen_height / 2 - window_height / 2)
-        self.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+        self.title_font = pygame.font.Font(FONT_PATH, 100)
+        self.start_font = pygame.font.Font(FONT_PATH, 40)
 
-        self.resizable(False, False)
+    def load_gif(self, path):
+        pil_image = Image.open(path)
+        frames = []
+        try:
+            while True:
+                frame = pil_image.convert("RGBA")
+                pygame_img = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode)
+                pygame_img = pygame.transform.scale(pygame_img, (WIDTH, HEIGHT))
+                frames.append(pygame_img)
+                pil_image.seek(pil_image.tell() + 1)
+        except EOFError:
+            pass
+        return frames
 
+    def show(self):
+        clock = pygame.time.Clock()
+        running = True
+        while running:
+            self.handle_frame()
+            self.draw()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    if self.confirm_exit(): pygame.quit(); sys.exit()
+                elif event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                    running = False
+            clock.tick(60)
+
+    def handle_frame(self):
+        now = pygame.time.get_ticks()
+        if now - self.frame_timer > self.frame_interval:
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            self.frame_timer = now
+
+    def draw(self):
+        self.screen.blit(self.frames[self.current_frame], (0, 0))
+        title_text = self.title_font.render("LUCKY CHAIN", True, (255, 255, 255))
+        start_text = self.start_font.render("Press any key or click to Start", True, (255, 255, 255))
+        esc_text = self.start_font.render("ESC to exit", True, (200, 200, 200))
+
+        self.screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 150))
+        self.screen.blit(start_text, (WIDTH // 2 - start_text.get_width() // 2, 320))
+        self.screen.blit(esc_text, (WIDTH - esc_text.get_width() - 30, HEIGHT - 60))
+        pygame.display.flip()
+
+    def confirm_exit(self):
+        root = tk.Tk(); root.withdraw()
+        result = messagebox.askyesno("Exit", "Are you sure you want to exit?")
+        root.destroy()
+        return result
+
+
+class LoginScreen:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Lucky Chain - Login")
+        self.frames = WelcomeScreen().load_gif(BG_GIF_PATH)
+        self.current_frame = 0
+        self.frame_timer = 0
+        self.frame_interval = 100
+        self.font = pygame.font.Font(FONT_PATH, 40)
+        self.small_font = pygame.font.Font(FONT_PATH, 28)
+        self.input_text = ""
+        self.active = False
+        self.message = ""
         self.user_manager = UserManager()
-        self.current_user = None
 
-        self.container = tk.Frame(self)
-        self.container.pack(fill="both", expand=True)
+    def run(self):
+        clock = pygame.time.Clock()
+        while True:
+            self.handle_frame()
+            self.draw()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    if WelcomeScreen().confirm_exit():
+                        pygame.quit()
+                        sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        user = self.handle_login()
+                        if user:
+                            return user
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.input_text = self.input_text[:-1]
+                    elif event.key == pygame.K_ESCAPE:
+                        if WelcomeScreen().confirm_exit():
+                            pygame.quit()
+                            sys.exit()
+                    else:
+                        self.input_text += event.unicode
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = event.pos
+                    if WIDTH // 2 - 150 <= x <= WIDTH // 2 + 150 and 210 <= y <= 250:
+                        user = self.handle_login()
+                        if user:
+                            return user
+                    elif WIDTH // 2 - 150 <= x <= WIDTH // 2 + 150 and 270 <= y <= 310:
+                        user = self.handle_register()
+                        if user:
+                            return user
 
-        self.frames = {}
-        for F in (WelcomePage, LoginPage, MenuPage):
-            frame = F(parent=self.container, controller=self)
-            self.frames[F] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+            clock.tick(60)
 
-        self.show_frame(WelcomePage)
+    def handle_login(self):
+        name = self.input_text.strip().lower()
+        if not name:
+            self.message = "Please enter your name."
+            return None
+        if name not in self.user_manager.users:
+            self.message = "This name is not registered."
+            return None
+        user = self.user_manager.get_user(name)
+        return user
 
-    def show_frame(self, page):
-        frame = self.frames[page]
-        frame.tkraise()
-        if hasattr(frame, "refresh"):
-            frame.refresh()
+    def handle_register(self):
+        import tkinter as tk
+        from tkinter import simpledialog, messagebox
 
-    def return_to_login(self, event=None):
-        self.current_user = None
-        self.show_frame(LoginPage)
+        root = tk.Tk()
+        root.withdraw()
+        new_name = simpledialog.askstring("Register", "Enter a new username:")
+        root.destroy()
 
+        if not new_name:
+            return None
 
-class WelcomePage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
+        new_name = new_name.strip().lower()
+        if new_name in self.user_manager.users:
+            messagebox.showerror("Name Taken", "This name is already taken. Please choose another.")
+            return None
 
-        self.bind("<Escape>", self.exit_program)
-        self.focus_set()
+        user = self.user_manager.get_user(new_name)
+        return user
 
-        fixed_width = 1350
-        fixed_height = 900
+    def handle_frame(self):
+        now = pygame.time.get_ticks()
+        if now - self.frame_timer > self.frame_interval:
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            self.frame_timer = now
 
-        # ✅ Load and resize wallpaper
-        image_path = os.path.join(os.path.dirname(__file__), "graphics", "wallpaper.jpg")
-        original_image = Image.open(image_path)
-        resized_image = original_image.resize(
-            (fixed_width, fixed_height),
-            Image.Resampling.LANCZOS
-        )
-        self.bg_image = ImageTk.PhotoImage(resized_image)
+    def draw(self):
+        self.screen.blit(self.frames[self.current_frame], (0, 0))
+        input_box = pygame.Rect(WIDTH // 2 - 150, 120, 300, 50)  # way up
+        pygame.draw.rect(self.screen, (0, 0, 0, 180), input_box.inflate(20, 20))
+        pygame.draw.rect(self.screen, (255, 255, 255), input_box, 2)
 
-        # ✅ Background image fills frame
-        self.bg_label = tk.Label(self, image=self.bg_image, borderwidth=0)
-        self.bg_label.pack(fill="both", expand=True)
+        txt_surface = self.font.render(self.input_text or "Enter name...", True, (255, 255, 255))
+        self.screen.blit(txt_surface, (input_box.x + 10, input_box.y + 10))
 
-        # ✅ Load Bebas Neue font
-        font_path = os.path.join(os.path.dirname(__file__), "fonts", "BebasNeue-Regular.ttf")
-        title_font = tkFont.Font(family="Bebas Neue", size=80)  # Big title
-        button_font = tkFont.Font(family="Bebas Neue", size=32)
+        login_btn = self.small_font.render("Login", True, (255, 255, 255))
+        self.screen.blit(login_btn, (WIDTH // 2 - 150, 210))  # was 320
 
-        # ✅ Create container frame (align left-center)
-        content_frame = tk.Frame(self.bg_label, bg="", highlightthickness=0)
-        content_frame.place(relx=0.2, rely=0.5, anchor="w")  # Left side align
+        register_txt = self.small_font.render("Don't have an account? Register", True, (200, 200, 255))
+        self.screen.blit(register_txt, (WIDTH // 2 - 150, 270))  # was 390
 
-        # ✅ Title text
-        title_label = tk.Label(content_frame, text="LUCKY CHAIN", font=title_font, fg="white")
-        title_label.pack(pady=(0, 20), anchor="w")  # Padding bottom 20
+        if self.message:
+            msg_surface = self.small_font.render(self.message, True, (255, 150, 150))
+            self.screen.blit(msg_surface, (WIDTH // 2 - msg_surface.get_width() // 2, 330))  # was 450
 
-        # ✅ Optional: Subtitle
-        subtitle_label = tk.Label(content_frame, text="Spin. Win. Enjoy the game.", font=button_font, fg="white")
-        subtitle_label.pack(pady=(0, 40), anchor="w")
-
-        # ✅ Start text (clean, no box)
-        start_button = tk.Label(content_frame, text="Start", font=button_font, fg="white", cursor="hand2")
-        start_button.pack(anchor="w")
-        start_button.bind("<Button-1>", self.go_to_login)
-
-        # ✅ Add hover effect for start button (Optional!)
-        start_button.bind("<Enter>", lambda e: start_button.config(fg="gray"))
-        start_button.bind("<Leave>", lambda e: start_button.config(fg="white"))
-
-        # ✅ ESC label bottom right
-        esc_label = tk.Label(self.bg_label, text="ESC", font=button_font, fg="white", padx=5, pady=2)
-        esc_label.place(relx=0.98, rely=0.95, anchor="se")
-
-    def go_to_login(self, event=None):
-        self.controller.show_frame(LoginPage)
-
-    def exit_program(self, event=None):
-        confirm = messagebox.askyesno("Exit Program", "Are you sure you want to exit?")
-        if confirm:
-            self.controller.destroy()
-            sys.exit()
-
-
-class LoginPage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-
-        self.bind_all("<Escape>", self.exit_program)
-
-        tk.Label(self, text="Enter your name:", font=("Helvetica", 18)).pack(pady=20)
-        self.name_entry = tk.Entry(self, font=("Helvetica", 16))
-        self.name_entry.pack(pady=10)
-
-        tk.Button(self, text="Login", font=("Helvetica", 14), command=self.login).pack(pady=20)
-
-        # ESC Visual Bar
-        esc_label = tk.Label(self, text="ESC  BACK", bg="black", fg="white", padx=5, pady=2)
-        esc_label.pack(side="bottom", anchor="se", padx=10, pady=10)
-
-    def login(self):
-        name = self.name_entry.get().strip()
-        if name:
-            self.controller.current_user = self.controller.user_manager.get_user(name)
-            self.controller.show_frame(MenuPage)
-
-    def exit_program(self, event=None):
-        confirm = messagebox.askyesno("Exit Program", "Are you sure you want to exit?")
-        if confirm:
-            self.controller.destroy()
-            sys.exit()
+        pygame.display.flip()
 
 
-class MenuPage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
+class MenuScreen:
+    def __init__(self, user):
+        self.user = user
+        self.user_manager = UserManager()
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Lucky Chain - Menu")
+        self.frames = WelcomeScreen().load_gif(BG_GIF_PATH)
+        self.current_frame = 0
+        self.frame_timer = 0
+        self.frame_interval = 100
+        self.font = pygame.font.Font(FONT_PATH, 40)
+        self.small_font = pygame.font.Font(FONT_PATH, 28)
 
-        self.bind("<Escape>", self.logout)
-        self.focus_set()
+    def run(self):
+        clock = pygame.time.Clock()
+        while True:
+            self.handle_frame()
+            self.draw()
 
-        self.balance_label = tk.Label(self, text="", font=("Helvetica", 18))
-        self.balance_label.pack(pady=20)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    if self.confirm_exit():
+                        pygame.quit()
+                        sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if self.confirm_exit():
+                            pygame.quit()
+                            sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = event.pos
+                    if WIDTH//2 - 150 <= x <= WIDTH//2 + 150 and 230 <= y <= 270:
+                        if self.user.balance <= 0:
+                            self.show_balance_empty_warning()
+                        else:
+                            return "play"
+                    elif WIDTH//2 - 150 <= x <= WIDTH//2 + 150 and 300 <= y <= 340:
+                        self.top_up()
 
-        tk.Button(self, text="Play Game", font=("Helvetica", 14), command=self.play_game).pack(pady=10)
-        tk.Button(self, text="Top Up", font=("Helvetica", 14), command=self.top_up).pack(pady=10)
+            clock.tick(60)
 
-        # ESC Visual Bar
-        esc_label = tk.Label(self, text="ESC  BACK", bg="black", fg="white", padx=5, pady=2)
-        esc_label.pack(side="bottom", anchor="se", padx=10, pady=10)
+    def show_balance_empty_warning(self):
+        import tkinter as tk
+        from tkinter import messagebox
 
-    def refresh(self):
-        user = self.controller.current_user
-        self.balance_label.config(text=f"Hello, {user.name}! Your balance: {user.balance}")
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("Insufficient Balance", "You don’t have enough balance to play. Please top up first.")
+        root.destroy()
 
-    def play_game(self):
-        self.controller.user_manager.save_users()
+    def handle_frame(self):
+        now = pygame.time.get_ticks()
+        if now - self.frame_timer > self.frame_interval:
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            self.frame_timer = now
 
-        user = self.controller.current_user
-        username = user.name
-        balance = user.balance
+    def draw(self):
+        self.screen.blit(self.frames[self.current_frame], (0, 0))
 
-        python_exec = sys.executable
-        main_path = os.path.abspath("main.py")
+        name_text = self.font.render(f"Hello, {self.user.name.title()}", True, (255, 255, 255))
+        bal_text = self.font.render(f"Balance: ${self.user.balance:.2f}", True, (255, 255, 255))
+        self.screen.blit(name_text, (WIDTH // 2 - name_text.get_width() // 2, 100))  # was 180
+        self.screen.blit(bal_text, (WIDTH // 2 - bal_text.get_width() // 2, 150))  # was 230
 
-        # Use call() so app waits for game to finish
-        subprocess.call([python_exec, main_path, username, str(balance)],
-                        stdout=sys.stdout, stderr=sys.stderr)
+        start_btn = self.small_font.render("Start Game", True, (255, 255, 255))
+        self.screen.blit(start_btn, (WIDTH // 2 - 150, 230))  # was 400
 
-        # After game ends, refresh balance and return to menu
-        self.controller.user_manager = UserManager()  # Reload data from CSV
-        self.controller.current_user = self.controller.user_manager.get_user(username)
-        self.refresh()
+        topup_btn = self.small_font.render("Top Up", True, (255, 255, 255))
+        self.screen.blit(topup_btn, (WIDTH // 2 - 150, 300))  # was 470
+
+        esc_text = self.small_font.render("ESC to exit", True, (200, 200, 200))
+        self.screen.blit(esc_text, (WIDTH - esc_text.get_width() - 30, HEIGHT - 60))
+
+        pygame.display.flip()
 
     def top_up(self):
-        amount = simpledialog.askinteger("Top Up", "Enter the amount you want to top up:", minvalue=1)
+        import tkinter as tk
+        from tkinter import simpledialog, messagebox
 
-        if amount is not None:
-            confirm = messagebox.askyesno("Confirm Top Up", f"Are you sure you want to top up {amount}?")
+        root = tk.Tk()
+        root.withdraw()
+        amount = simpledialog.askinteger("Top Up", "Enter amount to top up:", minvalue=1)
+        root.destroy()
 
-            if confirm:
-                user = self.controller.current_user
-                user.top_up(amount)
-                self.controller.user_manager.save_users()
-                messagebox.showinfo("Success", f"Topped up {amount} successfully!")
-                self.refresh()
+        if amount:
+            self.user.top_up(amount)
+            self.user_manager.save_users()
+            messagebox.showinfo("Success", f"Topped up ${amount} successfully!")
 
-    def logout(self, event=None):
-        self.controller.return_to_login()
+    def confirm_exit(self):
+        root = tk.Tk()
+        root.withdraw()
+        result = messagebox.askyesno("Exit Program", "Are you sure you want to exit?")
+        root.destroy()
+        return result
 
 
 if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    WelcomeScreen().show()
+    user = LoginScreen().run()
+    menu = MenuScreen(user)
+    result = menu.run()
+
+    if result == "play":
+        game = main.Game(user)
+        result_after_game = game.run()
+
+        if result_after_game == "topup":
+            updated_user = UserManager().get_user(user.name)
+            menu = MenuScreen(updated_user)
+            menu.run()
+

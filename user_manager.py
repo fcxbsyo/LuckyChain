@@ -2,9 +2,10 @@ import csv
 
 
 class User:
-    def __init__(self, name, balance=0):
+    def __init__(self, name, balance=0, jackpot_count=0):
         self.name = name
         self.balance = balance
+        self.jackpot_count = jackpot_count
 
     def top_up(self, amount):
         self.balance += amount
@@ -24,19 +25,22 @@ class UserManager:
                 for row in reader:
                     name = row['name']
                     balance = float(row['balance'])
-                    users[name] = User(name, balance)
+                    jackpot_count = int(row.get('jackpot_count', 0))
+
+                    user = User(name, balance, jackpot_count)
+                    users[name] = user
         except FileNotFoundError:
             with open(self.filename, mode='w', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow(['name', 'balance'])
+                writer.writerow(['name', 'balance', 'jackpot_count'])
         return users
 
     def save_users(self):
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['name', 'balance'])
-            for user in self.users.values():
-                writer.writerow([user.name, user.balance])
+            writer.writerow(['name', 'balance', 'jackpot_count'])
+            for name, user in self.users.items():
+                writer.writerow([user.name, user.balance, user.jackpot_count])
 
     def get_user(self, name):
         if name in self.users:

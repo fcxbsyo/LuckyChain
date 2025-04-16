@@ -14,30 +14,32 @@ class UI:
         except:
             print("Error loading font!")
             quit()
+        self.win_display_timer = 0
         self.win_text_angle = random.randint(-4, 4)
 
     def display_info(self):
         player_data = self.player.get_data()
 
-        balance_surf = self.font.render("Balance: $" + player_data['balance'], True, TEXT_COLOR, None)
+        combined_text = f"Balance: ${player_data['balance']}   Wager: ${player_data['bet_size']}"
+        combined_surf = self.font.render(combined_text, True, TEXT_COLOR, None)
+
         x, y = 20, self.display_surface.get_size()[1] - 30
-        balance_rect = balance_surf.get_rect(bottomleft=(x, y))
+        combined_rect = combined_surf.get_rect(bottomleft=(x, y))
 
-        bet_surf = self.bet_font.render("Wager: $" + player_data['bet_size'], True, TEXT_COLOR, None)
-        x = self.display_surface.get_size()[0] - 20
-        bet_rect = bet_surf.get_rect(bottomright=(x, y))
-
-        self.display_surface.blit(balance_surf, balance_rect)
-        self.display_surface.blit(bet_surf, bet_rect)
+        self.display_surface.blit(combined_surf, combined_rect)
 
         if self.player.last_payout:
-            last_payout = player_data['last_payout']
-            win_surf = self.win_font.render("WIN! $" + last_payout, True, TEXT_COLOR, None)
-            x1 = 800
-            y1 = self.display_surface.get_size()[1] - 60
-            win_surf = pygame.transform.rotate(win_surf, self.win_text_angle)
-            win_rect = win_surf.get_rect(center=(x1, y1))
-            self.display_surface.blit(win_surf, win_rect)
+            self.win_display_timer = pygame.time.get_ticks()
+        if pygame.time.get_ticks() - self.win_display_timer < 2000:
+            self.display_win_banner(player_data['last_payout'])
+
+    def display_win_banner(self, amount):
+        win_surf = self.win_font.render(f"WIN! ${amount}", True, TEXT_COLOR, None)
+        win_surf = pygame.transform.rotate(win_surf, self.win_text_angle)
+        win_rect = win_surf.get_rect(center=(
+            self.display_surface.get_width() // 2,
+            self.display_surface.get_height() - 60))
+        self.display_surface.blit(win_surf, win_rect)
 
     def update(self):
         pygame.draw.rect(self.display_surface, 'Black', pygame.Rect(0, 900, 1600, 100))
