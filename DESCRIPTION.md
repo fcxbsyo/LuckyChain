@@ -46,9 +46,7 @@ The **Markov Chain** is central to the game mechanics:
 ## UML Class Diagram
 The following UML class diagram illustrates the architecture of the **Lucky Chain Slot Machine** project. It provides a visual representation of the system, showing the main components of the game and how they interact with each other.
 
-![UML Class Diagram](https://github.com/yourusername/yourproject/blob/main/images/uml_diagram.png)
-
-*Note: The UML diagram is hosted in your GitHub repository. You can reference it in TPM using the HTML `<img>` tag.*
+![UML Class Diagram](https://github.com/fcxbsyo/LuckyChain/blob/main/UML/uml_diagram.png)
 
 ---
 
