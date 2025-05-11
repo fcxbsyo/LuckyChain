@@ -1,4 +1,6 @@
 import csv
+import os
+from collections import defaultdict
 
 
 class User:
@@ -67,3 +69,72 @@ class UserManager:
         amount_selected = options[choice - 1]
         user.top_up(amount_selected)
         self.save_users()
+
+
+def log_gameplay_data(player_name, bet_amount, spin_result, coin_balance,
+                      session_winnings, session_spins, streak_length, difficulty_state):
+    file_path = "gameplay_log.csv"
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow([
+                'player_name', 'bet_amount', 'spin_result',
+                'coin_balance', 'session_winnings', 'session_spins',
+                'streak_length', 'difficulty_state'
+            ])
+        writer.writerow([
+            player_name, bet_amount, spin_result,
+            coin_balance, session_winnings, session_spins,
+            streak_length, difficulty_state
+        ])
+
+
+def generate_player_summary(log_file='gameplay_log.csv', output_file='player_summary.csv'):
+    stats = defaultdict(lambda: {
+        'sessions': 0,
+        'total_spins': 0,
+        'total_winnings': 0,
+        'total_streak': 0
+    })
+
+    with open(log_file, mode='r', newline='') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if 'player_name' not in row:
+                continue
+
+            name = row['player_name']
+            stats[name]['sessions'] += 1
+
+            try:
+                stats[name]['total_spins'] += float(row['session_spins'])
+                stats[name]['total_winnings'] += float(row['session_winnings'])
+                stats[name]['total_streak'] += float(row['streak_length'])
+            except ValueError:
+                print(f"⚠️ Skipped bad row: {row}")
+                continue
+
+    with open(output_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            'player_name', 'total_sessions', 'total_spins',
+            'avg_spins_per_session', 'total_winnings',
+            'avg_winnings_per_spin', 'avg_max_streak'
+        ])
+
+        for name, data in stats.items():
+            avg_spins = data['total_spins'] / data['sessions'] if data['sessions'] else 0
+            avg_win_per_spin = data['total_winnings'] / data['total_spins'] if data['total_spins'] else 0
+            avg_streak = data['total_streak'] / data['sessions'] if data['sessions'] else 0
+
+            writer.writerow([
+                name,
+                data['sessions'],
+                data['total_spins'],
+                round(avg_spins, 2),
+                round(data['total_winnings'], 2),
+                round(avg_win_per_spin, 2),
+                round(avg_streak, 2)
+            ])

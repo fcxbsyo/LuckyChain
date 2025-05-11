@@ -20,17 +20,22 @@ class UI:
     def display_info(self):
         player_data = self.player.get_data()
 
-        combined_text = f"Balance: ${player_data['balance']}   Wager: ${player_data['bet_size']}"
-        combined_surf = self.font.render(combined_text, True, TEXT_COLOR, None)
+        balance_text = f"BALANCE: ${player_data['balance']}"
+        wager_text = f"WAGER: ${player_data['bet_size']}"
 
-        x, y = 20, self.display_surface.get_size()[1] - 30
-        combined_rect = combined_surf.get_rect(bottomleft=(x, y))
+        balance_surf = self.font.render(balance_text, True, TEXT_COLOR, None)
+        wager_surf = self.font.render(wager_text, True, TEXT_COLOR, None)
 
-        self.display_surface.blit(combined_surf, combined_rect)
+        x = WIDTH - 190
+        y = 40
+        self.display_surface.blit(balance_surf, (x, y))
+        self.display_surface.blit(wager_surf, (x, y + 40))
 
-        if self.player.last_payout:
+        if player_data['last_payout'] != "N/A" and float(player_data['last_payout']) > 0:
             self.win_display_timer = pygame.time.get_ticks()
-        if pygame.time.get_ticks() - self.win_display_timer < 2000:
+
+        if pygame.time.get_ticks() - self.win_display_timer < 2000 and \
+                player_data['last_payout'] != "N/A" and float(player_data['last_payout']) > 0:
             self.display_win_banner(player_data['last_payout'])
 
     def display_win_banner(self, amount):
@@ -42,5 +47,5 @@ class UI:
         self.display_surface.blit(win_surf, win_rect)
 
     def update(self):
-        pygame.draw.rect(self.display_surface, 'Black', pygame.Rect(0, 900, 1600, 100))
+        pygame.draw.rect(self.display_surface, 'Black', pygame.Rect(WIDTH - 200, 0, 200, HEIGHT))
         self.display_info()

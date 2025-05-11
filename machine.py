@@ -1,7 +1,7 @@
 from player import Player
 from reel import Reel
 from markovchain import MarkovChain
-from statistics import Statistics
+from game_statistics import Statistics
 from ui import UI
 from wins import flip_horizontal, longest_seq
 from settings import X_OFFSET
@@ -33,10 +33,10 @@ class Machine:
         self.statistics = Statistics()
 
     def spawn_reels(self):
-        x_topleft, y_topleft = 10, -300
+        x_topleft, y_topleft = 10, -240
         while self.reel_index < 5:
             if self.reel_index > 0:
-                x_topleft += (300 + X_OFFSET)
+                x_topleft += (240 + X_OFFSET)
 
             difficulty = self.markov_chain.get_next_state()
 
@@ -106,20 +106,25 @@ class Machine:
         hits = {}
         horizontal = flip_horizontal(result)
 
-        middle_row = horizontal[1]
-        unique_symbols = set(middle_row)
+        for row_idx, row in enumerate(horizontal):
+            counted = {}
+            for symbol in row:
+                counted[symbol] = counted.get(symbol, 0) + 1
 
-        if len(unique_symbols) == 1:
-            sym = middle_row[0]
-            hits[2] = [sym, [0, 1, 2, 3, 4]]
+            for sym, count in counted.items():
+                if count >= 4:
+                    matched_indices = [i for i, val in enumerate(row) if val == sym]
+                    hits[row_idx + 1] = [sym, matched_indices]
+
+        if hits:
             self.can_animate = True
             return hits
 
-        return None
-
     def pay_player(self, win_data, curr_player):
-        multiplier = sum(len(v[1]) for v in win_data.values())
-        spin_payout = multiplier * curr_player.bet_size * 2
+        difficulty = self.markov_chain.current_state
+        base_reward = 10 - difficulty * 2  # harder = less reward
+        spin_payout = curr_player.bet_size + max(base_reward, 1)  # never go below $1
+
         curr_player.balance += spin_payout
         self.machine_balance -= spin_payout
         curr_player.last_payout = spin_payout

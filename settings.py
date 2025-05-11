@@ -1,9 +1,9 @@
-DEFAULT_IMAGE_SIZE = (300, 300)
+DEFAULT_IMAGE_SIZE = (200, 200)
 FPS = 120
-HEIGHT = 1000
-WIDTH = 1600
-START_X, START_Y = 0, -300
-X_OFFSET, Y_OFFSET = 20, 0
+HEIGHT = 720
+WIDTH = 1400
+START_X, START_Y = 0, -240
+X_OFFSET, Y_OFFSET = 0, 0
 
 BG_IMAGE_PATH = 'graphics/0/bg.png'
 GRID_IMAGE_PATH = 'graphics/0/gridline.png'
@@ -16,9 +16,9 @@ UI_FONT_SIZE = 30
 WIN_FONT_SIZE = 110
 
 symbols = {
-    'sevenn': f"{SYM_PATH}/0_sevenn.png",
+    'seven': f"{SYM_PATH}/0_seven.png",
     'watermelon': f"{SYM_PATH}/0_watermelon.png",
     'cherry': f"{SYM_PATH}/0_cherry.png",
-    'olive': f"{SYM_PATH}/0_olive.png",
-    'bell': f"{SYM_PATH}/0_bell.png"
+    'grape': f"{SYM_PATH}/0_grape.png",
+    'lemon': f"{SYM_PATH}/0_lemon.png"
 }
