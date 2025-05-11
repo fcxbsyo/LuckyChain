@@ -5,8 +5,11 @@ import pygame
 import sys
 from user_manager import UserManager
 from settings import WIDTH, HEIGHT
+import platform
 
-ctypes.windll.user32.SetProcessDPIAware()
+if platform.system() == 'Windows':
+    import ctypes
+    ctypes.windll.user32.SetProcessDPIAware()
 print(">>> main.py is running!")
 print(">>> Arguments:", sys.argv)
 
@@ -29,27 +32,32 @@ class Game:
         self.user = user
         self.should_return_to_topup = False
         main_sound = pygame.mixer.Sound('audio/track.mp3')
+        main_sound.set_volume(0.2)
         main_sound.play(loops=-1)
 
     def draw_esc_bar(self):
         font = pygame.font.SysFont(None, 32)
-        text = "ESC  BACK"
-
-        text_surf = font.render(text, True, (255, 255, 255))
+        text_esc = "ESC  BACK"
+        text_space = "SPACE  SPIN"
+        text_esc_surf = font.render(text_esc, True, (255, 255, 255))
+        text_space_surf = font.render(text_space, True, (255, 255, 255))
         padding = 10
 
+        # Create background rectangle for ESC and Space messages
         bg_rect = pygame.Rect(
-            self.screen_width - text_surf.get_width() - 2 * padding - 20,
-            self.screen_height - text_surf.get_height() - 2 * padding - 20,
-            text_surf.get_width() + 2 * padding,
-            text_surf.get_height() + 2 * padding
+            self.screen_width - text_esc_surf.get_width() - 2 * padding - 20,
+            self.screen_height - text_esc_surf.get_height() - 2 * padding - 20,
+            text_esc_surf.get_width() + 2 * padding,
+            text_esc_surf.get_height() + 2 * padding
         )
 
         overlay = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))  # Semi-transparent black
+        overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (bg_rect.x, bg_rect.y))
 
-        self.screen.blit(text_surf, (bg_rect.x + padding, bg_rect.y + padding))
+        self.screen.blit(text_space_surf, (bg_rect.x + padding - 40, bg_rect.y - text_space_surf.get_height() -
+                                           10))
+        self.screen.blit(text_esc_surf, (bg_rect.x + padding - 40, bg_rect.y + padding))
 
     def confirm_exit(self):
         import tkinter as tk
@@ -74,7 +82,6 @@ class Game:
 
     def run(self):
         self.start_time = pygame.time.get_ticks()
-
         running = True
         while running:
             for event in pygame.event.get():
@@ -102,6 +109,8 @@ class Game:
             self.draw_esc_bar()
             self.clock.tick(FPS)
 
+        pygame.mixer.music.stop()
+        pygame.mixer.stop()
         self.save_and_exit()
         return "topup" if self.should_return_to_topup else "done"
 
